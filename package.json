@@ -7,7 +7,7 @@
     "start": "npx nodemon server.js",
     "test:unit": "echo 'Running unit tests...' && exit 0",
     "test:integration": "echo 'Running integration tests...' && exit 0",
-    "test:e2e": "echo 'Running end-to-end tests...' && exit 0"
+    "test:e2e": "playwright test"
   },
   "author": "Ayo Isaiah",
   "license": "MIT",
@@ -24,7 +24,8 @@
     "request": "^2.88.2"
   },
   "devDependencies": {
-    "nodemon": "^1.14.9"
+    "nodemon": "^1.14.9",
+    "@playwright/test": "^1.40.0"
   },
   "engines": {
     "node": "16.13.2"

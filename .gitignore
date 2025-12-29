@@ -2,3 +2,8 @@ data
 node_modules/
 public/assets/activity_icons/*.png
 *.daylio
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
