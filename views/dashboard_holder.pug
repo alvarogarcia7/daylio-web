@@ -1,7 +1,10 @@
 div(id="dashboard-holder", class="vstack entry-viewer")
   // ======= B A S I C =======
-  h1
-    | Dashboard
+  div(class="hstack")
+    h1(class="w-100")
+      | Dashboard
+    button(id="toggle-entry-form", class="btn btn-primary daylio-bg border-0 align-end")
+      | + New Entry
   div
     h6(class="align-baseline")
       | Daylio Web ( unofficial )
@@ -10,6 +13,8 @@ div(id="dashboard-holder", class="vstack entry-viewer")
   h4
     | #{metadata.numberOfEntries} entries - #{metadata.longestDaysInRow} days in a row
   hr
+
+  include entry_form
 
   div(class="vstack entrylist-scroll")
 

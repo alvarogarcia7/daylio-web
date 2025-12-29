@@ -1,0 +1,58 @@
+div(id="entry-form-container", class="card p-4 my-3 visually-hidden")
+  h5
+    | Create New Entry
+  form(id="new-entry-form")
+    
+    div(class="mb-3")
+      label(for="entry-mood-select", class="form-label")
+        | Mood
+      select(id="entry-mood-select", class="form-select", required)
+        option(value="", selected, disabled)
+          | Select a mood
+        for mood_name, mood_id in vital_data.available_moods
+          option(value=mood_id)
+            | #{mood_name}
+    
+    div(class="mb-3")
+      label(class="form-label")
+        | Activities
+      div(id="activity-groups-container")
+        for activity_group, group_id in vital_data.available_activity_groups
+          div(class="card p-2 my-2 bg-secondary-subtle")
+            div(class="hstack py-1 px-2 w-100 form-ac-group-header btn text-start", data-group-id=`${group_id}`)
+              label(class="text-secondary-emphasis w-100")
+                | #{activity_group}
+              div(id=`form-ac-group-${group_id}-collapse`, class="align-end activity-collapse-icon collapsed")
+                i(class="material-symbols-outlined")
+                  | expand_more
+            
+            div(id=`form-ac-group-${group_id}-items`, class="hstack column-gap-2 gap-2 flex-wrap p-2 visually-hidden")
+              for activity, act_id in vital_data.available_activities
+                if (activity.group == group_id)
+                  div(class="form-check")
+                    input(type="checkbox", class="form-check-input activity-checkbox", id=`activity-${act_id}`, value=act_id)
+                    label(class="form-check-label", for=`activity-${act_id}`)
+                      img(src=`assets/activity_icons/ic_${activity.icon}.png`, class="activity-icon-small", style="width: 20px; height: 20px; margin-right: 5px;")
+                      | #{activity.name}
+    
+    div(class="mb-3")
+      label(for="entry-datetime", class="form-label")
+        | Date & Time
+      input(type="datetime-local", id="entry-datetime", class="form-control", required)
+    
+    div(class="mb-3")
+      label(for="entry-note-title", class="form-label")
+        | Title (optional)
+      input(type="text", id="entry-note-title", class="form-control", placeholder="Entry title")
+    
+    div(class="mb-3")
+      label(for="entry-note-text", class="form-label")
+        | Note (optional)
+      textarea(id="entry-note-text", class="form-control", rows="4", placeholder="Write your thoughts...")
+    
+    div(class="hstack gap-2")
+      button(type="submit", class="btn btn-primary daylio-bg border-0")
+        | Create Entry
+      button(type="button", id="cancel-entry-form", class="btn btn-secondary")
+        | Cancel
+      div(id="form-status-message", class="ms-3 text-secondary")
