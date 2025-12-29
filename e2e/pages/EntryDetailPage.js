@@ -1,3 +1,4 @@
+const { expect } = require('@playwright/test');
 const DaylioPage = require('./DaylioPage');
 
 class EntryDetailPage extends DaylioPage {
@@ -14,8 +15,13 @@ class EntryDetailPage extends DaylioPage {
     this.entryMoodText = page.locator('#entry-mood-text');
     this.entryNoteViewer = page.locator('#entry-note-viewer');
     this.entryNoteBody = page.locator('#entry-note-body');
+    
     this.toggleAllButton = page.locator('#ac-toggle-all');
+    this.toggleAllActivitiesButton = page.locator('#ac-toggle-all');
     this.activityGroups = page.locator('.ac-group-header');
+    this.activityGroupHeaders = page.locator('.ac-group-header');
+    this.activityItems = page.locator('.ac-item');
+    this.activeActivityItems = page.locator('.ac-item.activity-dot-active');
   }
 
   async isEntryDetailVisible() {
@@ -24,12 +30,29 @@ class EntryDetailPage extends DaylioPage {
     );
   }
 
+  async verifyVisible() {
+    await expect(this.entryViewHolder).toBeVisible();
+    await expect(this.entryViewHolder).not.toHaveClass(/visually-hidden/);
+  }
+
+  async verifyHidden() {
+    await expect(this.entryViewHolder).toHaveClass(/visually-hidden/);
+  }
+
   async closeEntry() {
     await this.closeButton.click();
     await this.page.waitForTimeout(300);
   }
 
+  async clickClose() {
+    await this.closeButton.click();
+  }
+
   async getEntryTitle() {
+    return await this.entryTitle.textContent();
+  }
+
+  async getTitle() {
     return await this.entryTitle.textContent();
   }
 
@@ -37,7 +60,15 @@ class EntryDetailPage extends DaylioPage {
     return await this.entryTime.textContent();
   }
 
+  async getTime() {
+    return await this.entryTime.textContent();
+  }
+
   async getEntryDay() {
+    return await this.entryDay.textContent();
+  }
+
+  async getDay() {
     return await this.entryDay.textContent();
   }
 
@@ -53,8 +84,28 @@ class EntryDetailPage extends DaylioPage {
     return await this.entryMoodIcon.textContent();
   }
 
+  async verifyEntryDetails(expectedTitle, expectedTime, expectedDay, expectedMood) {
+    if (expectedTitle) {
+      const title = await this.getTitle();
+      expect(title).toContain(expectedTitle);
+    }
+    if (expectedTime) {
+      await expect(this.entryTime).toHaveText(expectedTime);
+    }
+    if (expectedDay) {
+      await expect(this.entryDay).toHaveText(expectedDay);
+    }
+    if (expectedMood) {
+      await expect(this.entryMoodText).toHaveText(expectedMood);
+    }
+  }
+
   async getNoteBody() {
     return await this.entryNoteBody.innerHTML();
+  }
+
+  async getNoteContent() {
+    return await this.entryNoteBody.textContent();
   }
 
   async isNoteVisible() {
@@ -63,9 +114,41 @@ class EntryDetailPage extends DaylioPage {
     );
   }
 
+  async verifyNoteVisible() {
+    await expect(this.entryNoteViewer).toBeVisible();
+    await expect(this.entryNoteViewer).not.toHaveClass(/visually-hidden/);
+  }
+
+  async verifyNoteHidden() {
+    await expect(this.entryNoteViewer).toHaveClass(/visually-hidden/);
+  }
+
+  async verifyNoteContent(expectedContent) {
+    const content = await this.getNoteContent();
+    expect(content).toContain(expectedContent);
+  }
+
   async toggleAllActivities() {
     await this.toggleAllButton.click();
     await this.page.waitForTimeout(300);
+  }
+
+  async clickToggleAllActivities() {
+    await this.toggleAllActivitiesButton.click();
+  }
+
+  async getActiveActivityCount() {
+    return await this.activeActivityItems.count();
+  }
+
+  async verifyActivityActive(activityId) {
+    const activity = this.page.locator(`#ac-item-${activityId}`);
+    await expect(activity).toHaveClass(/activity-dot-active/);
+  }
+
+  async verifyActivityInactive(activityId) {
+    const activity = this.page.locator(`#ac-item-${activityId}`);
+    await expect(activity).not.toHaveClass(/activity-dot-active/);
   }
 
   async expandActivityGroup(groupId) {
@@ -96,11 +179,25 @@ class EntryDetailPage extends DaylioPage {
     }
   }
 
+  async clickActivityGroup(groupId) {
+    await this.page.locator(`[data-group-id="${groupId}"]`).click();
+  }
+
   async isActivityGroupExpanded(groupId) {
     const collapseIcon = this.page.locator(`#ac-group-${groupId}-collapse`);
     return await collapseIcon.evaluate(el => 
       !el.classList.contains('collapsed')
     );
+  }
+
+  async verifyActivityGroupExpanded(groupId) {
+    const groupItems = this.page.locator(`#ac-group-${groupId}-items`);
+    await expect(groupItems).not.toHaveClass(/visually-hidden/);
+  }
+
+  async verifyActivityGroupCollapsed(groupId) {
+    const groupItems = this.page.locator(`#ac-group-${groupId}-items`);
+    await expect(groupItems).toHaveClass(/visually-hidden/);
   }
 
   async getActivityGroupItems(groupId) {
@@ -152,6 +249,32 @@ class EntryDetailPage extends DaylioPage {
   async getActivityGroupLabel(groupId) {
     const groupHeader = this.page.locator(`[data-group-id="${groupId}"]`);
     return await groupHeader.locator('label').textContent();
+  }
+
+  async expandAllActivityGroups() {
+    const count = await this.getActivityGroupCount();
+    for (let i = 0; i < count; i++) {
+      const header = this.activityGroupHeaders.nth(i);
+      const groupId = await header.getAttribute('data-group-id');
+      const groupItems = this.page.locator(`#ac-group-${groupId}-items`);
+      const isHidden = await groupItems.getAttribute('class');
+      if (isHidden && isHidden.includes('visually-hidden')) {
+        await header.click();
+      }
+    }
+  }
+
+  async collapseAllActivityGroups() {
+    const count = await this.getActivityGroupCount();
+    for (let i = 0; i < count; i++) {
+      const header = this.activityGroupHeaders.nth(i);
+      const groupId = await header.getAttribute('data-group-id');
+      const groupItems = this.page.locator(`#ac-group-${groupId}-items`);
+      const isHidden = await groupItems.getAttribute('class');
+      if (!isHidden || !isHidden.includes('visually-hidden')) {
+        await header.click();
+      }
+    }
   }
 
   async waitForEntryDetail() {

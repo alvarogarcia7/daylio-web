@@ -1,3 +1,4 @@
+const { expect } = require('@playwright/test');
 const DaylioPage = require('./DaylioPage');
 
 class DashboardPage extends DaylioPage {
@@ -6,23 +7,49 @@ class DashboardPage extends DaylioPage {
     
     this.dashboardHolder = page.locator('#dashboard-holder');
     this.dashboardTitle = this.dashboardHolder.locator('h1');
+    this.newEntryButton = page.locator('#toggle-entry-form');
     this.entriesCount = this.dashboardHolder.locator('h4');
+    this.metadataText = this.dashboardHolder.locator('h4');
     this.moodGraphTitle = this.dashboardHolder.locator('h5');
     this.yearSelector = page.locator('#mood-graph-year');
     this.monthSelector = page.locator('#mood-graph-month');
+    this.moodGraphYearSelect = page.locator('#mood-graph-year');
+    this.moodGraphMonthSelect = page.locator('#mood-graph-month');
     this.moodChart = page.locator('.ct-chart');
+    
+    this.entryForm = page.locator('.entry-form');
+    this.entryFormContainer = page.locator('#entry-form-container');
   }
 
   async isDashboardVisible() {
     return await this.dashboardHolder.isVisible();
   }
 
+  async verifyVisible() {
+    await expect(this.dashboardHolder).toBeVisible();
+    await expect(this.dashboardHolder).not.toHaveClass(/visually-hidden/);
+  }
+
+  async verifyHidden() {
+    await expect(this.dashboardHolder).toHaveClass(/visually-hidden/);
+  }
+
   async getDashboardTitle() {
     return await this.dashboardTitle.textContent();
   }
 
+  async clickNewEntry() {
+    await this.newEntryButton.click();
+  }
+
   async getEntriesCountText() {
     return await this.entriesCount.textContent();
+  }
+
+  async verifyMetadata(expectedEntries, expectedDaysInRow) {
+    const text = await this.metadataText.textContent();
+    expect(text).toContain(`${expectedEntries} entries`);
+    expect(text).toContain(`${expectedDaysInRow} days in a row`);
   }
 
   async selectYear(year) {
@@ -33,6 +60,14 @@ class DashboardPage extends DaylioPage {
   async selectMonth(month) {
     await this.monthSelector.selectOption(month.toString());
     await this.page.waitForTimeout(500);
+  }
+
+  async selectMoodGraphYear(year) {
+    await this.moodGraphYearSelect.selectOption(year.toString());
+  }
+
+  async selectMoodGraphMonth(monthIndex) {
+    await this.moodGraphMonthSelect.selectOption(monthIndex.toString());
   }
 
   async getSelectedYear() {
@@ -71,6 +106,10 @@ class DashboardPage extends DaylioPage {
     return await this.moodChart.isVisible();
   }
 
+  async verifyMoodChartVisible() {
+    await expect(this.moodChart).toBeVisible();
+  }
+
   async hasMoodChartData() {
     const chartLines = await this.page.locator('.ct-chart .ct-series').count();
     return chartLines > 0;
@@ -80,8 +119,20 @@ class DashboardPage extends DaylioPage {
     return await this.page.locator('.ct-chart .ct-point').all();
   }
 
+  async verifyEntryFormVisible() {
+    await expect(this.entryFormContainer).toBeVisible();
+  }
+
+  async verifyEntryFormHidden() {
+    await expect(this.entryFormContainer).toHaveClass(/visually-hidden/);
+  }
+
   async waitForChartUpdate() {
     await this.page.waitForTimeout(1000);
+  }
+
+  async waitForMoodGraphUpdate() {
+    await this.page.waitForTimeout(500);
   }
 }
 
