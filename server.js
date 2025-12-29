@@ -3,6 +3,7 @@ const moment = require('moment')
 const path = require('path')
 const fs = require('fs')
 const extract = require('extract-zip')
+const { initializeDatabase, importDaylioData, loadDataFromDatabase, isDatabasePopulated } = require('./db/database')
 
 const app = express()
 
@@ -315,6 +316,8 @@ function prepareServer() {
   let bufferData = new Buffer.from(rawData, 'base64')
   DAYLIO_DATA = JSON.parse(bufferData.toString('utf-8'))
 
+  importDaylioData(DAYLIO_DATA)
+
   prepareIcons()
 
 }
@@ -366,6 +369,16 @@ async function main() {
 
   if (!fs.existsSync(__dirname + '/data/')) {
     fs.mkdirSync(__dirname + '/data/')
+  }
+
+  initializeDatabase()
+
+  if (isDatabasePopulated()) {
+    console.log('info: loading data from database')
+    DAYLIO_DATA = loadDataFromDatabase()
+    prepareIcons()
+    loadServer()
+    return
   }
 
   if (DAYLIO_BACKUP) {
