@@ -4,8 +4,11 @@ const path = require('path')
 const fs = require('fs')
 const extract = require('extract-zip')
 const { initializeDatabase, importDaylioData, loadDataFromDatabase, isDatabasePopulated } = require('./db/database')
+const { createEntry } = require('./db/repository')
 
 const app = express()
+
+app.use(express.json())
 
 const appArgs = process.argv.slice(2)
 
@@ -350,6 +353,62 @@ function loadServer() {
 
   app.get('/structured_data', (req, res) => {
       res.json( getStructuredEntries() )
+  })
+
+  app.post('/api/entries', (req, res) => {
+    const { mood, datetime, note = '', note_title = '', tags = [] } = req.body
+
+    if (mood === undefined || mood === null) {
+      return res.status(400).json({ error: 'mood is required' })
+    }
+
+    if (!datetime) {
+      return res.status(400).json({ error: 'datetime is required' })
+    }
+
+    if (!Array.isArray(tags)) {
+      return res.status(400).json({ error: 'tags must be an array' })
+    }
+
+    const datetimeNum = Number(datetime)
+    if (isNaN(datetimeNum)) {
+      return res.status(400).json({ error: 'datetime must be a valid number' })
+    }
+
+    const timeZoneOffset = 0
+    const time_obj = moment.unix((datetimeNum + timeZoneOffset) / 1000).utc()
+    
+    const entryData = {
+      minute: time_obj.minutes(),
+      hour: time_obj.hours(),
+      day: time_obj.date(),
+      month: time_obj.month() + 1,
+      year: time_obj.year(),
+      datetime: datetimeNum,
+      timeZoneOffset: timeZoneOffset,
+      mood: mood,
+      noteTitle: note_title,
+      note: note,
+      tags: tags
+    }
+
+    const result = createEntry(entryData)
+
+    if (!result.success) {
+      return res.status(500).json({ error: result.error })
+    }
+
+    const createdEntry = {
+      id: result.id,
+      mood: mood,
+      datetime: datetimeNum,
+      note: note,
+      note_title: note_title,
+      tags: tags,
+      ...entryData
+    }
+
+    res.status(201).json(createdEntry)
   })
 
 
