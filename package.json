@@ -10,7 +10,10 @@
     "test:coverage": "jest --coverage",
     "test:unit": "echo 'Running unit tests...' && exit 0",
     "test:integration": "echo 'Running integration tests...' && exit 0",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:debug": "playwright test --debug"
   },
   "author": "Ayo Isaiah",
   "license": "MIT",

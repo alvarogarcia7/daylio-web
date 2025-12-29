@@ -2,6 +2,7 @@ data
 node_modules/
 public/assets/activity_icons/*.png
 *.daylio
+!e2e/fixtures/*.daylio
 
 # Playwright
 test-results/
