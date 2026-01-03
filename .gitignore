@@ -7,3 +7,6 @@ public/assets/activity_icons/*.png
 test-results/
 playwright-report/
 playwright/.cache/
+
+.DS_Store
+
