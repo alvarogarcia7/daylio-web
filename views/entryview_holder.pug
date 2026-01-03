@@ -37,7 +37,7 @@ div(id="entryview-holder",class="vstack entry-viewer visually-hidden")
   div(class="entrylist-scroll")
 
     div(class="hstack")
-      h5(id="entry-title", class="w-100")
+      h5(class="w-100")
         | Activities
       button(id="ac-toggle-all", class="btn text-secondary-emphasis align-end w-25")
         | toggle all
@@ -68,7 +68,7 @@ div(id="entryview-holder",class="vstack entry-viewer visually-hidden")
 
                 div(class="container-fluid vstack my-2", style="max-height: auto; max-width: 12vh;")
                   div(id=`ac-item-${act_index}`, class="activity-dot position-relative m-1 ac-item")
-                    img(src=`assets/activity_icons/ic_${activity.icon}.png`, class="position-absolute top-50 start-50 translate-middle activity-dot-icon-active")
+                    img(src=`/assets/activity_icons/ic_${activity.icon}.png`, class="position-absolute top-50 start-50 translate-middle activity-dot-icon-active")
                   label(class="text-center", style="font-size: 2vh; width: 9.5vh;")
                     | #{activity.name}
     
