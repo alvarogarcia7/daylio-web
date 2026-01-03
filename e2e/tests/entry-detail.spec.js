@@ -541,7 +541,7 @@ test.describe('Entry Detail - Data Integrity', () => {
       await entryListPage.clickEntryById(String(i));
       
       const title = await entryDetailPage.getEntryTitle();
-      expect(title).toBe(entries[i].note_title || '');
+      expect(title).toBe(entries[i].journal[0] || '');
       
       await entryDetailPage.closeEntry();
     }

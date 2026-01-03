@@ -77,7 +77,7 @@ function loadEntry(element) {
 
     // For each activity this entry has, toggle the respective activity dot 
     let activities = ENTRY_DATA[entryId].activities
-    if (activities.length > 1) {
+    if (activities.length > 0) {
         activities.forEach(item => {
             document.getElementById(`ac-item-${item}`).classList.add('activity-dot-active')
         })
@@ -89,7 +89,7 @@ function loadEntry(element) {
     let entryNote = ENTRY_DATA[entryId].journal[1]
 
 
-    document.getElementById('entry-title').innerHTML = ENTRY_DATA[entryId].journal[0] || ENTRY_DATA[entryId].date_formatted
+    document.getElementById('entry-title').innerHTML = ENTRY_DATA[entryId].journal[0]
     document.getElementById('entry-time').innerHTML =  ENTRY_DATA[entryId].time
     document.getElementById('entry-activity-count').innerHTML =  Object(ENTRY_DATA[entryId].activities).length + ' activities'
     document.getElementById('entry-mood-text').innerHTML = VITAL_DATA.available_moods[ ENTRY_DATA[entryId].mood ]
@@ -113,20 +113,27 @@ const searchInputHandler = function() {
 }
 
 
+const setLightMode = function() {
+    document.getElementById('change-theme').innerHTML = 'dark_mode'
+    document.querySelectorAll('body')[0].dataset.bsTheme = 'light'
+    localStorage.setItem('theme', 'light')
+}
+
+const setDarkMode = function() {
+    document.getElementById('change-theme').innerHTML = 'light_mode'
+    document.querySelectorAll('body')[0].dataset.bsTheme = 'dark'
+    localStorage.setItem('theme', 'dark')
+}
+
 const toggleTheme = function() {
 
     // Bootstrap attribute ->
 
     if (document.querySelectorAll('body')[0].dataset.bsTheme === 'dark') {
-        document.getElementById('change-theme').innerHTML = 'dark_mode'
-        document.querySelectorAll('body')[0].dataset.bsTheme = 'light'
+        setLightMode()
     } else {
-        document.getElementById('change-theme').innerHTML = 'light_mode'
-        document.querySelectorAll('body')[0].dataset.bsTheme = 'dark'
+        setDarkMode()
     }
-
-    localStorage.setItem('theme', document.querySelectorAll('body')[0].dataset.bsTheme );
-
         
 }
 
@@ -155,9 +162,37 @@ const closeEntry = function() {
 
 // Collapse/show all activity groups
 const toggleAllActitivites = function() {
-    document.querySelectorAll('.ac-group-header').forEach(occurence => {
-        collapseToggle(occurence.dataset.groupId)
-
+    const groups = document.querySelectorAll('.ac-group-header')
+    
+    // Count expanded and collapsed groups
+    let expandedCount = 0
+    let collapsedCount = 0
+    
+    groups.forEach(occurence => {
+        const collapseButton = document.getElementById(`ac-group-${occurence.dataset.groupId}-collapse`)
+        if (collapseButton && collapseButton.classList.contains('collapsed')) {
+            collapsedCount++
+        } else {
+            expandedCount++
+        }
+    })
+    
+    // If more are expanded, collapse all. Otherwise expand all.
+    const shouldExpand = collapsedCount >= expandedCount
+    
+    groups.forEach(occurence => {
+        const collapseButton = document.getElementById(`ac-group-${occurence.dataset.groupId}-collapse`)
+        const collapseView = document.getElementById(`ac-group-${occurence.dataset.groupId}-items`)
+        
+        if (shouldExpand) {
+            // Expand
+            collapseButton.classList.remove('collapsed')
+            collapseView.classList.remove('visually-hidden')
+        } else {
+            // Collapse
+            collapseButton.classList.add('collapsed')
+            collapseView.classList.add('visually-hidden')
+        }
     })
 }
 
@@ -176,7 +211,10 @@ const updateMoodGraphMonths = function() {
 
         occurence.disabled = false
 
-        if (!STRUCTURED_DATA[year][String(occurence.value)]) {
+        // Convert 0-indexed month to 1-indexed for STRUCTURED_DATA lookup
+        const monthKey = String(parseInt(occurence.value) + 1)
+        
+        if (!STRUCTURED_DATA[year][monthKey]) {
             occurence.disabled = true
 
         } else {
@@ -261,7 +299,9 @@ function getMonthMoodArray(year, month) {
 
     mStructuredData = STRUCTURED_DATA
 
-    monthData = mStructuredData[year][month]
+    // Convert 0-indexed month to 1-indexed for STRUCTURED_DATA lookup
+    const monthKey = String(parseInt(month) + 1)
+    monthData = mStructuredData[year][monthKey]
 
     moodDataArray = []
 
@@ -297,7 +337,7 @@ function loadMoodChart(dataSeries) {
       low: 0,
       showArea: true,
       showLine: true,
-      showPoint: false,
+      showPoint: true,
       fullWidth: true,
       chartPadding: {
         top: 0,
@@ -340,7 +380,8 @@ function loadMain() {
 
 async function main() {
 
-    if(document.querySelectorAll('body')[0].dataset.bsTheme != localStorage.getItem('theme'))
+    const savedTheme = localStorage.getItem('theme')
+    if(savedTheme && document.querySelectorAll('body')[0].dataset.bsTheme != savedTheme)
         toggleTheme()
 
 
@@ -353,18 +394,21 @@ async function main() {
     .then((response) => response.json())
     .then((json) => {
         VITAL_DATA = json
+        window.VITAL_DATA = json
     })
 
     await fetch('/entries')
     .then((response) => response.json())
     .then((json) => {
         ENTRY_DATA = json
+        window.ENTRY_DATA = json
     })
 
     await fetch('/structured_data')
     .then((response) => response.json())
     .then((json) => {
         STRUCTURED_DATA = json
+        window.STRUCTURED_DATA = json
     })
 
 
@@ -372,5 +416,9 @@ async function main() {
     loadMain()
 
 }
+
+// Expose theme functions for testing
+window.setLightMode = setLightMode
+window.setDarkMode = setDarkMode
 
 main()

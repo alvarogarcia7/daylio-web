@@ -9,8 +9,13 @@ module.exports = defineConfig({
   reporter: 'html',
   use: {
     baseURL: 'http://localhost:5000',
-    trace: 'on-first-retry',
-  },
+		// Reduce timeouts for page actions and navigation to make tests fail faster on hangs
+		actionTimeout: 5000, // 5s for clicks, fills and other actions
+		navigationTimeout: 10000, // 10s for page.goto / navigation
+		trace: 'on-first-retry',
+		screenshot: 'only-on-failure',
+		video: 'retain-on-failure',
+	},
 
   projects: [
     {

@@ -15,12 +15,33 @@ class DaylioPage {
   }
 
   async waitForLoad() {
-    await this.loader.waitFor({ state: 'hidden', timeout: 30000 });
-    await this.mainDiv.waitFor({ state: 'visible' });
+    // Wait for loader to have visually-hidden class
+    await this.page.waitForFunction(() => {
+      const loader = document.getElementById('loader-div');
+      return loader && loader.classList.contains('visually-hidden');
+    }, { timeout: 10000 });
+    
+    // Wait for main div to not have visually-hidden class
+    await this.page.waitForFunction(() => {
+      const mainDiv = document.getElementById('main-div');
+      return mainDiv && !mainDiv.classList.contains('visually-hidden');
+    }, { timeout: 10000 });
   }
 
   async toggleTheme() {
     await this.themeToggle.click();
+  }
+
+  async setLightMode() {
+    await this.page.evaluate(() => {
+      window.setLightMode();
+    });
+  }
+
+  async setDarkMode() {
+    await this.page.evaluate(() => {
+      window.setDarkMode();
+    });
   }
 
   async getTheme() {
