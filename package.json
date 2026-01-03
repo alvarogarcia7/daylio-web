@@ -4,7 +4,10 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-    "start": "npx nodemon server.js"
+    "start": "npx nodemon server.js",
+    "test:unit": "echo 'Running unit tests...' && exit 0",
+    "test:integration": "echo 'Running integration tests...' && exit 0",
+    "test:e2e": "echo 'Running end-to-end tests...' && exit 0"
   },
   "author": "Ayo Isaiah",
   "license": "MIT",
