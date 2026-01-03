@@ -26,8 +26,5 @@
   "devDependencies": {
     "nodemon": "^1.14.9",
     "@playwright/test": "^1.40.0"
-  },
-  "engines": {
-    "node": "16.13.2"
   }
 }
