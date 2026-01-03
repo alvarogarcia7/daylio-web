@@ -5,7 +5,7 @@ const { createSchema, getMigrationVersion, setMigrationVersion } = require('./mi
 
 const DB_PATH = path.join(__dirname, '..', 'data', 'daylio.db')
 
-let db = null
+global.db = null
 
 function initializeDatabase() {
   const dataDir = path.join(__dirname, '..', 'data')
@@ -14,36 +14,36 @@ function initializeDatabase() {
     fs.mkdirSync(dataDir, { recursive: true })
   }
 
-  db = new Database(DB_PATH)
-  db.pragma('journal_mode = WAL')
+  global.db = new Database(DB_PATH)
+  global.db.pragma('journal_mode = WAL')
   
   runMigrations()
   
-  return db
+  return global.db
 }
 
 function runMigrations() {
-  const currentVersion = getMigrationVersion(db)
+  const currentVersion = getMigrationVersion(global.db)
   
   if (currentVersion === 0) {
     console.log('info: running database migrations')
-    createSchema(db)
-    setMigrationVersion(db, 1)
+    createSchema(global.db)
+    setMigrationVersion(global.db, 1)
     console.log('info: migrations complete')
   }
 }
 
 function getDatabase() {
-  if (!db) {
-    db = initializeDatabase()
+  if (!global.db) {
+    global.db = initializeDatabase()
   }
-  return db
+  return global.db
 }
 
 function closeDatabase() {
-  if (db) {
-    db.close()
-    db = null
+  if (global.db) {
+    global.db.close()
+    global.db = null
   }
 }
 

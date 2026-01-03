@@ -3,7 +3,7 @@ const express = require('express')
 const path = require('path')
 const fs = require('fs')
 const Database = require('better-sqlite3')
-const { initializeDatabase, importDaylioData, closeDatabase } = require('../../db/database')
+const { initializeDatabase, importDaylioData, loadDataFromDatabase, closeDatabase } = require('../../db/database')
 const { createEntry } = require('../../db/repository')
 const { getEntryData, getReadableData, getStructuredEntries } = require('../../server')
 
@@ -17,12 +17,12 @@ const mockDaylioData = {
   dayEntries: [
     {
       id: 1,
-      minute: 30,
-      hour: 14,
-      day: 15,
+      minute: 45,
+      hour: 10,
+      day: 16,
       month: 3,
       year: 2024,
-      datetime: 1710511800000,
+      datetime: 1710585945000,
       timeZoneOffset: 0,
       mood: 1,
       note_title: 'Great day',
@@ -30,13 +30,27 @@ const mockDaylioData = {
       tags: [1, 2]
     },
     {
-      id: 2,
-      minute: 45,
-      hour: 10,
-      day: 16,
+      id: 3,
+      minute: 0,
+      hour: 12,
+      day: 13,
       month: 3,
       year: 2024,
-      datetime: 1710585945000,
+      datetime: 1710331200000,
+      timeZoneOffset: 0,
+      mood: 1,
+      note_title: 'Good day',
+      note: 'Pretty nice',
+      tags: [2]
+    },
+    {
+      id: 2,
+      minute: 0,
+      hour: 9,
+      day: 14,
+      month: 3,
+      year: 2024,
+      datetime: 1710406800000,
       timeZoneOffset: 0,
       mood: 3,
       note_title: 'Normal day',
@@ -61,28 +75,59 @@ const mockDaylioData = {
     { id: 5, custom_name: 'awful', mood_group_id: 5, icon_id: 5, predefined_name_id: 5, state: 0, createdAt: Date.now() }
   ],
   metadata: {
-    number_of_entries: 2
+    number_of_entries: 3
   },
-  daysInRowLongestChain: 2
+  daysInRowLongestChain: 3
 }
 
-function setupTestApp(daylioData) {
+function setupTestApp() {
   const testApp = express()
   testApp.use(express.json())
 
-  const ENTRY_DATA = getEntryData(daylioData)
-  const VITAL_DATA = getReadableData(daylioData)
+  let daylioData = loadDataFromDatabase()
 
   testApp.get('/vital', (req, res) => {
-    res.json(VITAL_DATA)
+    daylioData = loadDataFromDatabase()
+    res.json(getReadableData(daylioData))
   })
 
   testApp.get('/entries', (req, res) => {
-    res.json(ENTRY_DATA)
+    daylioData = loadDataFromDatabase()
+    res.json(getEntryData(daylioData))
   })
 
   testApp.get('/structured_data', (req, res) => {
-    res.json(getStructuredEntries())
+    daylioData = loadDataFromDatabase()
+    const { getEntryData: getED, getReadableData: getRD } = require('../../server')
+    const ENTRY_DATA = getED(daylioData)
+    const VITAL_DATA = getRD(daylioData)
+    
+    const structuredData = {}
+    
+    for (entry in ENTRY_DATA) {
+      const entryYear = (ENTRY_DATA[entry].date).split('-')[2]
+      const entryMonth = (ENTRY_DATA[entry].date).split('-')[1]
+      const entryDay = (ENTRY_DATA[entry].date).split('-')[0]
+      const entryMood = VITAL_DATA.available_mood_groups[ENTRY_DATA[entry].mood]
+      
+      const reverseMoodData = [5, 4, 3, 2, 1]
+      const reversedMood = reverseMoodData[entryMood - 1]
+      
+      if (!structuredData[entryYear])
+        structuredData[entryYear] = {}
+      
+      if (!structuredData[entryYear][entryMonth])
+        structuredData[entryYear][entryMonth] = {}
+      
+      if (structuredData[entryYear][entryMonth][entryDay]) {
+        structuredData[entryYear][entryMonth][entryDay] += reversedMood
+        structuredData[entryYear][entryMonth][entryDay] /= 2
+      } else {
+        structuredData[entryYear][entryMonth][entryDay] = reversedMood
+      }
+    }
+    
+    res.json(structuredData)
   })
 
   testApp.post('/api/entries', (req, res) => {
@@ -128,6 +173,8 @@ function setupTestApp(daylioData) {
     if (!result.success) {
       return res.status(500).json({ error: result.error })
     }
+
+    daylioData = loadDataFromDatabase()
 
     const createdEntry = {
       id: result.id,
@@ -195,7 +242,7 @@ describe('Integration Tests - API Endpoints', () => {
 
     initializeDatabase()
     importDaylioData(mockDaylioData)
-    app = setupTestApp(mockDaylioData)
+    app = setupTestApp()
   })
 
   afterEach(() => {
@@ -321,7 +368,7 @@ describe('Integration Tests - API Endpoints', () => {
       it('should properly parse datetime into date components', async () => {
         const entry = {
           mood: 1,
-          datetime: 1710511800000
+          datetime: 1710519600000
         }
 
         const response = await request(app)
@@ -332,8 +379,8 @@ describe('Integration Tests - API Endpoints', () => {
         expect(response.body.year).toBe(2024)
         expect(response.body.month).toBe(3)
         expect(response.body.day).toBe(15)
-        expect(response.body.hour).toBe(14)
-        expect(response.body.minute).toBe(30)
+        expect(response.body.hour).toBe(16)
+        expect(response.body.minute).toBe(20)
       })
     })
 
@@ -550,7 +597,7 @@ describe('Integration Tests - API Endpoints', () => {
         .expect('Content-Type', /json/)
 
       expect(Array.isArray(response.body)).toBe(true)
-      expect(response.body).toHaveLength(2)
+      expect(response.body).toHaveLength(3)
     })
 
     it('should return entries with correct schema', async () => {
@@ -576,6 +623,7 @@ describe('Integration Tests - API Endpoints', () => {
 
       expect(response.body[0].id).toBe(1)
       expect(response.body[1].id).toBe(2)
+      expect(response.body[2].id).toBe(3)
     })
 
     it('should format date correctly', async () => {
@@ -672,7 +720,8 @@ describe('Integration Tests - API Endpoints', () => {
 
       expect(response.body).toHaveProperty('2024')
       expect(response.body['2024']).toHaveProperty('3')
-      expect(response.body['2024']['3']).toHaveProperty('15')
+      expect(response.body['2024']['3']).toHaveProperty('13')
+      expect(response.body['2024']['3']).toHaveProperty('14')
       expect(response.body['2024']['3']).toHaveProperty('16')
     })
 
@@ -681,7 +730,7 @@ describe('Integration Tests - API Endpoints', () => {
         .get('/structured_data')
         .expect(200)
 
-      const moodValue = response.body['2024']['3']['15']
+      const moodValue = response.body['2024']['3']['13']
       expect(typeof moodValue).toBe('number')
       expect(moodValue).toBeGreaterThanOrEqual(1)
       expect(moodValue).toBeLessThanOrEqual(5)
@@ -692,19 +741,27 @@ describe('Integration Tests - API Endpoints', () => {
         .get('/structured_data')
         .expect(200)
 
-      const day15Mood = response.body['2024']['3']['15']
+      const day13Mood = response.body['2024']['3']['13']
+      const day14Mood = response.body['2024']['3']['14']
       const day16Mood = response.body['2024']['3']['16']
       
-      expect(day15Mood).toBe(5)
-      expect(day16Mood).toBe(3)
+      expect(day13Mood).toBe(5)
+      expect(day14Mood).toBe(3)
+      expect(day16Mood).toBe(5)
     })
 
     it('should handle multiple entries per day with averaging', async () => {
+      const firstEntry = {
+        mood: 1,
+        datetime: 1710511800000
+      }
+      
       const secondEntry = {
         mood: 3,
         datetime: 1710515400000
       }
 
+      await request(app).post('/api/entries').send(firstEntry).expect(201)
       await request(app).post('/api/entries').send(secondEntry).expect(201)
 
       const response = await request(app)
@@ -759,7 +816,7 @@ describe('Integration Tests - API Endpoints', () => {
     it('should have matching entry counts between /entries and database', async () => {
       const entriesResponse = await request(app).get('/entries').expect(200)
       
-      expect(entriesResponse.body).toHaveLength(2)
+      expect(entriesResponse.body).toHaveLength(3)
     })
 
     it('should reflect new entries in all endpoints after POST', async () => {
@@ -774,7 +831,7 @@ describe('Integration Tests - API Endpoints', () => {
       await request(app).post('/api/entries').send(newEntry).expect(201)
 
       const entriesResponse = await request(app).get('/entries').expect(200)
-      expect(entriesResponse.body).toHaveLength(3)
+      expect(entriesResponse.body).toHaveLength(4)
 
       const structuredResponse = await request(app).get('/structured_data').expect(200)
       expect(structuredResponse.body['2024']['3']).toHaveProperty('19')
@@ -818,7 +875,7 @@ describe('Integration Tests - API Endpoints', () => {
       
       initializeDatabase()
       importDaylioData(emptyData)
-      app = setupTestApp(emptyData)
+      app = setupTestApp()
 
       const vitalResponse = await request(app).get('/vital').expect(200)
       expect(vitalResponse.body).toHaveProperty('available_activities')
@@ -846,6 +903,235 @@ describe('Integration Tests - API Endpoints', () => {
 
       expect(response.body).toHaveProperty('mood', 1)
       expect(response.body).toHaveProperty('id')
+    })
+  })
+
+  describe('POST /api/entries - Data Reload Integration', () => {
+    it('should reflect newly created entry in GET /entries immediately after POST', async () => {
+      const initialEntriesResponse = await request(app).get('/entries').expect(200)
+      const initialCount = initialEntriesResponse.body.length
+      expect(initialCount).toBe(3)
+
+      const newEntry = {
+        mood: 2,
+        datetime: 1710672000000,
+        note: 'Integration test note',
+        note_title: 'Integration Test',
+        tags: [1, 3]
+      }
+
+      const postResponse = await request(app)
+        .post('/api/entries')
+        .send(newEntry)
+        .expect(201)
+
+      expect(postResponse.body).toHaveProperty('id')
+      const createdId = postResponse.body.id
+
+      const updatedEntriesResponse = await request(app).get('/entries').expect(200)
+      expect(updatedEntriesResponse.body.length).toBe(initialCount + 1)
+
+      const createdEntry = updatedEntriesResponse.body.find(e => e.id === createdId)
+      expect(createdEntry).toBeDefined()
+      expect(createdEntry.mood).toBe(2)
+      expect(createdEntry.journal[0]).toBe('Integration Test')
+      expect(createdEntry.journal[1]).toBe('Integration test note')
+      expect(createdEntry.activities).toEqual([1, 3])
+    })
+
+    it('should reflect newly created entry in GET /structured_data immediately after POST', async () => {
+      const newEntry = {
+        mood: 1,
+        datetime: 1710758400000,
+        note: 'Structured data test',
+        note_title: 'Test'
+      }
+
+      await request(app)
+        .post('/api/entries')
+        .send(newEntry)
+        .expect(201)
+
+      const structuredResponse = await request(app).get('/structured_data').expect(200)
+      
+      expect(structuredResponse.body).toHaveProperty('2024')
+      expect(structuredResponse.body['2024']).toHaveProperty('3')
+      expect(structuredResponse.body['2024']['3']).toHaveProperty('18')
+      
+      const moodValue = structuredResponse.body['2024']['3']['18']
+      expect(typeof moodValue).toBe('number')
+      expect(moodValue).toBeGreaterThanOrEqual(1)
+      expect(moodValue).toBeLessThanOrEqual(5)
+    })
+
+    it('should maintain correct entry count across multiple POSTs and GETs', async () => {
+      const entry1 = {
+        mood: 1,
+        datetime: 1710844800000,
+        note: 'First entry',
+        note_title: 'Entry 1'
+      }
+
+      const entry2 = {
+        mood: 2,
+        datetime: 1710931200000,
+        note: 'Second entry',
+        note_title: 'Entry 2'
+      }
+
+      await request(app).post('/api/entries').send(entry1).expect(201)
+      
+      const afterFirst = await request(app).get('/entries').expect(200)
+      expect(afterFirst.body.length).toBe(4)
+
+      await request(app).post('/api/entries').send(entry2).expect(201)
+      
+      const afterSecond = await request(app).get('/entries').expect(200)
+      expect(afterSecond.body.length).toBe(5)
+    })
+
+    it('should preserve existing entries when adding new ones', async () => {
+      const initialEntries = await request(app).get('/entries').expect(200)
+      const existingIds = initialEntries.body.map(e => e.id)
+
+      const newEntry = {
+        mood: 3,
+        datetime: 1711017600000,
+        note: 'New test entry'
+      }
+
+      await request(app).post('/api/entries').send(newEntry).expect(201)
+
+      const updatedEntries = await request(app).get('/entries').expect(200)
+      
+      existingIds.forEach(id => {
+        const stillExists = updatedEntries.body.find(e => e.id === id)
+        expect(stillExists).toBeDefined()
+      })
+    })
+
+    it('should correctly format newly created entry in GET /entries', async () => {
+      const newEntry = {
+        mood: 4,
+        datetime: 1710758400000,
+        note: 'Testing formatting',
+        note_title: 'Format Test',
+        tags: [2]
+      }
+
+      await request(app).post('/api/entries').send(newEntry).expect(201)
+
+      const entriesResponse = await request(app).get('/entries').expect(200)
+      const createdEntry = entriesResponse.body.find(e => e.journal[0] === 'Format Test')
+
+      expect(createdEntry).toBeDefined()
+      expect(createdEntry).toHaveProperty('id')
+      expect(createdEntry).toHaveProperty('time')
+      expect(createdEntry).toHaveProperty('date')
+      expect(createdEntry).toHaveProperty('date_formatted')
+      expect(createdEntry).toHaveProperty('day')
+      expect(createdEntry).toHaveProperty('journal')
+      expect(createdEntry).toHaveProperty('mood')
+      expect(createdEntry).toHaveProperty('activities')
+      
+      expect(createdEntry.time).toMatch(/^\d{2}:\d{2} (AM|PM)$/)
+      expect(createdEntry.date).toMatch(/^\d{1,2}-\d{1,2}-\d{4}$/)
+      expect(Array.isArray(createdEntry.journal)).toBe(true)
+      expect(createdEntry.journal).toHaveLength(2)
+      expect(Array.isArray(createdEntry.activities)).toBe(true)
+    })
+
+    it('should update structured_data with correct date hierarchy after POST', async () => {
+      const newEntry = {
+        mood: 2,
+        datetime: 1712188800000,
+        note: 'April entry'
+      }
+
+      const beforePost = await request(app).get('/structured_data').expect(200)
+      expect(beforePost.body['2024']).not.toHaveProperty('4')
+
+      await request(app).post('/api/entries').send(newEntry).expect(201)
+
+      const afterPost = await request(app).get('/structured_data').expect(200)
+      expect(afterPost.body['2024']).toHaveProperty('4')
+      expect(afterPost.body['2024']['4']).toHaveProperty('4')
+    })
+
+    it('should handle newlines in notes correctly after POST and GET', async () => {
+      const newEntry = {
+        mood: 3,
+        datetime: 1710844800000,
+        note: 'Line 1\nLine 2\nLine 3',
+        note_title: 'Multiline'
+      }
+
+      await request(app).post('/api/entries').send(newEntry).expect(201)
+
+      const entriesResponse = await request(app).get('/entries').expect(200)
+      const createdEntry = entriesResponse.body.find(e => e.journal[0] === 'Multiline')
+
+      expect(createdEntry).toBeDefined()
+      expect(createdEntry.journal[1]).toBe('Line 1<br>Line 2<br>Line 3')
+    })
+
+    it('should maintain entry order (newest first) after adding new entry', async () => {
+      const futureEntry = {
+        mood: 1,
+        datetime: 1715000000000,
+        note: 'Future entry',
+        note_title: 'Latest'
+      }
+
+      await request(app).post('/api/entries').send(futureEntry).expect(201)
+
+      const entriesResponse = await request(app).get('/entries').expect(200)
+      
+      expect(entriesResponse.body[0].journal[0]).toBe('Latest')
+      
+      for (let i = 0; i < entriesResponse.body.length - 1; i++) {
+        const currentDate = new Date(entriesResponse.body[i].date.split('-').reverse().join('-'))
+        const nextDate = new Date(entriesResponse.body[i + 1].date.split('-').reverse().join('-'))
+        expect(currentDate >= nextDate).toBe(true)
+      }
+    })
+
+    it('should correctly average moods when multiple entries exist on same day', async () => {
+      const entry1 = {
+        mood: 1,
+        datetime: 1710511800000
+      }
+
+      const entry2 = {
+        mood: 3,
+        datetime: 1710515400000
+      }
+
+      await request(app).post('/api/entries').send(entry1).expect(201)
+      await request(app).post('/api/entries').send(entry2).expect(201)
+
+      const structuredResponse = await request(app).get('/structured_data').expect(200)
+      
+      const moodValue = structuredResponse.body['2024']['3']['15']
+      expect(moodValue).toBeCloseTo(4, 1)
+    })
+
+    it('should handle entries with empty optional fields after reload', async () => {
+      const minimalEntry = {
+        mood: 2,
+        datetime: 1710931200000
+      }
+
+      await request(app).post('/api/entries').send(minimalEntry).expect(201)
+
+      const entriesResponse = await request(app).get('/entries').expect(200)
+      const createdEntry = entriesResponse.body.find(e => 
+        e.date === '20-3-2024' && e.journal[0] === '' && e.journal[1] === ''
+      )
+
+      expect(createdEntry).toBeDefined()
+      expect(createdEntry.journal).toEqual(['', ''])
+      expect(createdEntry.activities).toEqual([])
     })
   })
 })

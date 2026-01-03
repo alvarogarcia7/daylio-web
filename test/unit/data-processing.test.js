@@ -12,18 +12,18 @@ beforeAll(() => {
 
 beforeEach(() => {
   originalDaylioData = global.DAYLIO_DATA
-  global.DAYLIO_DATA = {
+  global.DAYLIO_DATA =({
     dayEntries: [],
     tags: [],
     tag_groups: [],
     customMoods: [],
     daysInRowLongestChain: 0,
     metadata: { number_of_entries: 0 }
-  }
+  });
 })
 
 afterEach(() => {
-  global.DAYLIO_DATA = originalDaylioData
+  global.DAYLIO_DATA =( originalDaylioData)
 })
 
 describe('getEntryData', () => {
@@ -442,23 +442,23 @@ describe('getReadableData', () => {
 
 describe('getStructuredEntries', () => {
   beforeEach(() => {
-    global.DAYLIO_DATA = {
+    global.DAYLIO_DATA =( {
       dayEntries: [],
       tags: [],
       tag_groups: [],
       customMoods: [],
       daysInRowLongestChain: 0,
       metadata: { number_of_entries: 0 }
-    }
+    });
   })
   
   test('should return empty object for no entries', () => {
-    global.DAYLIO_DATA = {
+    global.DAYLIO_DATA =( {
       dayEntries: [],
       tags: [],
       tag_groups: [],
       customMoods: []
-    }
+    })
     
     const result = getStructuredEntries()
     
@@ -466,7 +466,7 @@ describe('getStructuredEntries', () => {
   })
   
   test('should structure single entry by year/month/day', () => {
-    global.DAYLIO_DATA = {
+    global.DAYLIO_DATA =( {
       dayEntries: [
         {
           id: 1,
@@ -486,7 +486,7 @@ describe('getStructuredEntries', () => {
       customMoods: [
         { id: 1, custom_name: 'rad', mood_group_id: 5 }
       ]
-    }
+    })
     
     const result = getStructuredEntries()
     
@@ -497,7 +497,7 @@ describe('getStructuredEntries', () => {
   })
   
   test('should reverse mood scores (5->1, 1->5)', () => {
-    global.DAYLIO_DATA = {
+    global.DAYLIO_DATA =( {
       dayEntries: [
         {
           id: 1,
@@ -517,7 +517,7 @@ describe('getStructuredEntries', () => {
       customMoods: [
         { id: 1, custom_name: 'rad', mood_group_id: 5 }
       ]
-    }
+    })
     
     const result = getStructuredEntries()
     
@@ -525,7 +525,7 @@ describe('getStructuredEntries', () => {
   })
   
   test('should average multiple entries for same day', () => {
-    global.DAYLIO_DATA = {
+    global.DAYLIO_DATA =( {
       dayEntries: [
         {
           id: 1,
@@ -558,7 +558,7 @@ describe('getStructuredEntries', () => {
         { id: 1, custom_name: 'rad', mood_group_id: 5 },
         { id: 2, custom_name: 'good', mood_group_id: 3 }
       ]
-    }
+    })
     
     const result = getStructuredEntries()
     
@@ -566,7 +566,7 @@ describe('getStructuredEntries', () => {
   })
   
   test('should handle entries across multiple months', () => {
-    global.DAYLIO_DATA = {
+    global.DAYLIO_DATA =( {
       dayEntries: [
         {
           id: 1,
@@ -598,7 +598,7 @@ describe('getStructuredEntries', () => {
       customMoods: [
         { id: 1, custom_name: 'rad', mood_group_id: 5 }
       ]
-    }
+    })
     
     const result = getStructuredEntries()
     
@@ -609,7 +609,7 @@ describe('getStructuredEntries', () => {
   })
   
   test('should handle entries across multiple years', () => {
-    global.DAYLIO_DATA = {
+    global.DAYLIO_DATA =( {
       dayEntries: [
         {
           id: 1,
@@ -641,7 +641,7 @@ describe('getStructuredEntries', () => {
       customMoods: [
         { id: 1, custom_name: 'rad', mood_group_id: 5 }
       ]
-    }
+    })
     
     const result = getStructuredEntries()
     
@@ -650,7 +650,7 @@ describe('getStructuredEntries', () => {
   })
   
   test('should handle all 5 mood group levels', () => {
-    global.DAYLIO_DATA = {
+    global.DAYLIO_DATA =( {
       dayEntries: [
         {
           id: 1,
@@ -722,7 +722,7 @@ describe('getStructuredEntries', () => {
         { id: 4, custom_name: 'bad', mood_group_id: 2 },
         { id: 5, custom_name: 'awful', mood_group_id: 1 }
       ]
-    }
+    })
     
     const result = getStructuredEntries()
     

@@ -13,7 +13,7 @@ app.use(express.json())
 const appArgs = process.argv.slice(2)
 
 const DAYLIO_BACKUP = appArgs[0]
-let DAYLIO_DATA
+global.DAYLIO_DATA
 
 
 /* 
@@ -194,8 +194,8 @@ function getStructuredEntries() {
     var structuredData = {}
 
 
-    let ENTRY_DATA = getEntryData(DAYLIO_DATA)
-    let VITAL_DATA = getReadableData(DAYLIO_DATA)
+    let ENTRY_DATA = getEntryData(global.DAYLIO_DATA)
+    let VITAL_DATA = getReadableData(global.DAYLIO_DATA)
 
     // Iterating through unstructured data ( Array-like )
 
@@ -285,7 +285,7 @@ function prepareIcons() {
   const PUBLIC_ICONS = '/public/assets/activity_icons'
   const LOCAL_ICONS = '/activity_icons'
 
-  availableActivities = getReadableData(DAYLIO_DATA).available_activities
+  availableActivities = getReadableData(global.DAYLIO_DATA).available_activities
 
   console.log(`info: loading ${Object.keys(availableActivities).length} icons`)
 
@@ -317,9 +317,9 @@ function prepareServer() {
   // NOTE: Having this file decoded PREVENTS 'accidental' data disclosure
   let rawData = fs.readFileSync(__dirname + '/data/backup.daylio').toString()
   let bufferData = new Buffer.from(rawData, 'base64')
-  DAYLIO_DATA = JSON.parse(bufferData.toString('utf-8'))
+  global.DAYLIO_DATA = JSON.parse(bufferData.toString('utf-8'))
 
-  importDaylioData(DAYLIO_DATA)
+  importDaylioData(global.DAYLIO_DATA)
 
   prepareIcons()
 
@@ -327,11 +327,11 @@ function prepareServer() {
 
 function loadServer() {
 
-  let ENTRY_DATA = getEntryData(DAYLIO_DATA)
-  let VITAL_DATA = getReadableData(DAYLIO_DATA)
-  let META_DATA = getMetadata(DAYLIO_DATA)
-
   app.get('/', (req, res) => {
+    let ENTRY_DATA = getEntryData(global.DAYLIO_DATA)
+    let VITAL_DATA = getReadableData(global.DAYLIO_DATA)
+    let META_DATA = getMetadata(global.DAYLIO_DATA)
+    
     res.render('index', {
       title: 'Daylio',
       entry_data: ENTRY_DATA,
@@ -344,11 +344,11 @@ function loadServer() {
   * FOR CLIENT SIDE
   */
   app.get('/vital', (req, res) => {
-      res.json( VITAL_DATA )
+      res.json( getReadableData(global.DAYLIO_DATA) )
   })
 
   app.get('/entries', (req, res) => {
-      res.json( ENTRY_DATA )
+      res.json( getEntryData(global.DAYLIO_DATA) )
   })
 
   app.get('/structured_data', (req, res) => {
@@ -398,6 +398,8 @@ function loadServer() {
       return res.status(500).json({ error: result.error })
     }
 
+    global.DAYLIO_DATA = loadDataFromDatabase()
+
     const createdEntry = {
       id: result.id,
       mood: mood,
@@ -434,7 +436,7 @@ async function main() {
 
   if (isDatabasePopulated()) {
     console.log('info: loading data from database')
-    DAYLIO_DATA = loadDataFromDatabase()
+    global.DAYLIO_DATA = loadDataFromDatabase()
     prepareIcons()
     loadServer()
     return
@@ -468,5 +470,5 @@ module.exports = {
   getEntryData,
   getReadableData,
   getStructuredEntries,
-  getMetadata
+  getMetadata,
 }
