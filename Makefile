@@ -7,6 +7,11 @@ test-unit:
 	npm run test:unit
 .PHONY: test-unit
 
+test-data-generate:
+	node e2e/fixtures/create-test-backup.js
+	mv e2e/fixtures/test-backup.daylio data/backup.daylio
+.PHONY: test-data-generate
+
 # Run integration tests
 test-integration:
 	npm run test:integration
