@@ -840,7 +840,7 @@ test.describe('Responsive Layout Checks - Mobile', () => {
   });
 
   // This test doesn't work.
-  xtest('should be able to close entry detail on mobile', async () => {
+  test.skip('should be able to close entry detail on mobile', async () => {
     await entryListPage.clickEntryByIndex(0);
     await entryDetailPage.goto();
     await entryDetailPage.closeEntry();
