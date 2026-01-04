@@ -1,3 +1,6 @@
+PLAYWRIGHT?=npx playwright
+PLAYWRIGHT_WORKERS?=4
+PLAYWRIGHT_TEST?=${PLAYWRIGHT} test --workers ${PLAYWRIGHT_WORKERS}
 # Help target - shows available commands
 help:
 	@echo "Available Makefile targets:"
@@ -45,9 +48,20 @@ test-e2e:
 	npm run test:e2e
 .PHONY: test-e2e
 
+run:
+	npx nodemon server.js
+.PHONY: run
+
+set-fixture-1:
+	rm -f ./data/daylio.db*
+	node e2e/fixtures/create-test-backup.js
+	mv e2e/fixtures/test-backup.daylio data/backup.daylio
+	npx node server.js data/backup.daylio
+.PHONY: set-fixture-1
+
 # Run Playwright tests without keeping server running (for CI/automation)
-test-playwright:
-	CI=1 npx playwright test
+test-playwright: set-fixture-1
+	CI=1 ${PLAYWRIGHT_TEST}
 .PHONY: test-playwright
 
 # Run specific Playwright test file without keeping server running
@@ -57,7 +71,7 @@ test-playwright-file:
 		echo "Example: make test-playwright-file FILE=e2e/tests/dashboard.spec.js"; \
 		exit 1; \
 	fi
-	CI=1 npx playwright test $(FILE)
+	CI=1 ${PLAYWRIGHT_TEST} $(FILE)
 .PHONY: test-playwright-file
 
 # Run Playwright tests for specific project without keeping server running
@@ -67,18 +81,22 @@ test-playwright-project:
 		echo "Example: make test-playwright-project PROJECT=chromium"; \
 		exit 1; \
 	fi
-	CI=1 npx playwright test --project=$(PROJECT)
+	CI=1 ${PLAYWRIGHT_TEST} --project=$(PROJECT)
 .PHONY: test-playwright-project
 
 # Run Playwright tests with UI mode (interactive)
 test-playwright-ui:
-	npx playwright test --ui
+	${PLAYWRIGHT_TEST} --ui
 .PHONY: test-playwright-ui
 
 # Run Playwright tests in headed mode (see browser)
 test-playwright-headed:
-	CI=1 npx playwright test --headed
+	CI=1 ${PLAYWRIGHT_TEST} --headed
 .PHONY: test-playwright-headed
+
+test-playwright-report:
+	${PLAYWRIGHT} show-report
+.PHONY: test-playwright-report
 
 # Run the development server
 dev:

@@ -10,7 +10,7 @@ class DashboardPage extends DaylioPage {
     this.newEntryButton = page.locator('#toggle-entry-form');
     this.entriesCount = this.dashboardHolder.locator('h4');
     this.metadataText = this.dashboardHolder.locator('h4');
-    this.moodGraphTitle = this.dashboardHolder.locator('h5');
+    this.moodGraphTitle = this.dashboardHolder.getByRole('heading', { name: 'Mood Graph' })
     this.yearSelector = page.locator('#mood-graph-year');
     this.monthSelector = page.locator('#mood-graph-month');
     this.moodGraphYearSelect = page.locator('#mood-graph-year');

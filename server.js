@@ -439,14 +439,13 @@ async function main() {
     global.DAYLIO_DATA = loadDataFromDatabase()
     prepareIcons()
     loadServer()
-    return
+    return 0;
   }
 
   if (DAYLIO_BACKUP) {
-
     console.log(`info: loading backup - ${DAYLIO_BACKUP}`)
     await extractDaylioBackup()
-
+    return 0;
   } else {
 
     if (!fs.existsSync(__dirname + '/data/backup.daylio')) {
@@ -459,6 +458,7 @@ async function main() {
   }
   prepareServer()
   loadServer()
+  return 0;
 
 }
 
