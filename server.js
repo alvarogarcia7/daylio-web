@@ -3,13 +3,17 @@ const moment = require('moment')
 const path = require('path')
 const fs = require('fs')
 const extract = require('extract-zip')
+const { initializeDatabase, importDaylioData, loadDataFromDatabase, isDatabasePopulated } = require('./db/database')
+const { createEntry } = require('./db/repository')
 
 const app = express()
+
+app.use(express.json())
 
 const appArgs = process.argv.slice(2)
 
 const DAYLIO_BACKUP = appArgs[0]
-let DAYLIO_DATA
+global.DAYLIO_DATA
 
 
 /* 
@@ -190,8 +194,8 @@ function getStructuredEntries() {
     var structuredData = {}
 
 
-    let ENTRY_DATA = getEntryData(DAYLIO_DATA)
-    let VITAL_DATA = getReadableData(DAYLIO_DATA)
+    let ENTRY_DATA = getEntryData(global.DAYLIO_DATA)
+    let VITAL_DATA = getReadableData(global.DAYLIO_DATA)
 
     // Iterating through unstructured data ( Array-like )
 
@@ -281,7 +285,7 @@ function prepareIcons() {
   const PUBLIC_ICONS = '/public/assets/activity_icons'
   const LOCAL_ICONS = '/activity_icons'
 
-  availableActivities = getReadableData(DAYLIO_DATA).available_activities
+  availableActivities = getReadableData(global.DAYLIO_DATA).available_activities
 
   console.log(`info: loading ${Object.keys(availableActivities).length} icons`)
 
@@ -313,7 +317,9 @@ function prepareServer() {
   // NOTE: Having this file decoded PREVENTS 'accidental' data disclosure
   let rawData = fs.readFileSync(__dirname + '/data/backup.daylio').toString()
   let bufferData = new Buffer.from(rawData, 'base64')
-  DAYLIO_DATA = JSON.parse(bufferData.toString('utf-8'))
+  global.DAYLIO_DATA = JSON.parse(bufferData.toString('utf-8'))
+
+  importDaylioData(global.DAYLIO_DATA)
 
   prepareIcons()
 
@@ -321,11 +327,11 @@ function prepareServer() {
 
 function loadServer() {
 
-  let ENTRY_DATA = getEntryData(DAYLIO_DATA)
-  let VITAL_DATA = getReadableData(DAYLIO_DATA)
-  let META_DATA = getMetadata(DAYLIO_DATA)
-
   app.get('/', (req, res) => {
+    let ENTRY_DATA = getEntryData(global.DAYLIO_DATA)
+    let VITAL_DATA = getReadableData(global.DAYLIO_DATA)
+    let META_DATA = getMetadata(global.DAYLIO_DATA)
+    
     res.render('index', {
       title: 'Daylio',
       entry_data: ENTRY_DATA,
@@ -338,15 +344,73 @@ function loadServer() {
   * FOR CLIENT SIDE
   */
   app.get('/vital', (req, res) => {
-      res.json( VITAL_DATA )
+      res.json( getReadableData(global.DAYLIO_DATA) )
   })
 
   app.get('/entries', (req, res) => {
-      res.json( ENTRY_DATA )
+      res.json( getEntryData(global.DAYLIO_DATA) )
   })
 
   app.get('/structured_data', (req, res) => {
       res.json( getStructuredEntries() )
+  })
+
+  app.post('/api/entries', (req, res) => {
+    const { mood, datetime, note = '', note_title = '', tags = [] } = req.body
+
+    if (mood === undefined || mood === null) {
+      return res.status(400).json({ error: 'mood is required' })
+    }
+
+    if (!datetime) {
+      return res.status(400).json({ error: 'datetime is required' })
+    }
+
+    if (!Array.isArray(tags)) {
+      return res.status(400).json({ error: 'tags must be an array' })
+    }
+
+    const datetimeNum = Number(datetime)
+    if (isNaN(datetimeNum)) {
+      return res.status(400).json({ error: 'datetime must be a valid number' })
+    }
+
+    const timeZoneOffset = 0
+    const time_obj = moment.unix((datetimeNum + timeZoneOffset) / 1000).utc()
+    
+    const entryData = {
+      minute: time_obj.minutes(),
+      hour: time_obj.hours(),
+      day: time_obj.date(),
+      month: time_obj.month() + 1,
+      year: time_obj.year(),
+      datetime: datetimeNum,
+      timeZoneOffset: timeZoneOffset,
+      mood: mood,
+      noteTitle: note_title,
+      note: note,
+      tags: tags
+    }
+
+    const result = createEntry(entryData)
+
+    if (!result.success) {
+      return res.status(500).json({ error: result.error })
+    }
+
+    global.DAYLIO_DATA = loadDataFromDatabase()
+
+    const createdEntry = {
+      id: result.id,
+      mood: mood,
+      datetime: datetimeNum,
+      note: note,
+      note_title: note_title,
+      tags: tags,
+      ...entryData
+    }
+
+    res.status(201).json(createdEntry)
   })
 
 
@@ -368,11 +432,20 @@ async function main() {
     fs.mkdirSync(__dirname + '/data/')
   }
 
-  if (DAYLIO_BACKUP) {
+  initializeDatabase()
 
+  if (isDatabasePopulated()) {
+    console.log('info: loading data from database')
+    global.DAYLIO_DATA = loadDataFromDatabase()
+    prepareIcons()
+    loadServer()
+    return 0;
+  }
+
+  if (DAYLIO_BACKUP) {
     console.log(`info: loading backup - ${DAYLIO_BACKUP}`)
     await extractDaylioBackup()
-
+    return 0;
   } else {
 
     if (!fs.existsSync(__dirname + '/data/backup.daylio')) {
@@ -385,7 +458,17 @@ async function main() {
   }
   prepareServer()
   loadServer()
+  return 0;
 
 }
 
-main()
+if (require.main === module) {
+  main()
+}
+
+module.exports = {
+  getEntryData,
+  getReadableData,
+  getStructuredEntries,
+  getMetadata,
+}

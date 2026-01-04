@@ -2,6 +2,7 @@ data
 node_modules/
 public/assets/activity_icons/*.png
 *.daylio
+!e2e/fixtures/*.daylio
 
 # Playwright
 test-results/
@@ -10,3 +11,11 @@ playwright/.cache/
 
 .DS_Store
 
+# SQLite database files
+*.db
+*.db-shm
+*.db-wal
+
+# Jest testing
+coverage/
+.jest-cache/
