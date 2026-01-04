@@ -171,10 +171,92 @@ function getMetadata() {
   }
 }
 
+function exportDaylioFormat() {
+  const db = getDatabase()
+  
+  try {
+    const entriesStmt = db.prepare('SELECT * FROM entries ORDER BY id')
+    const entries = entriesStmt.all()
+    
+    const tagsStmt = db.prepare('SELECT * FROM tags ORDER BY order_index')
+    const tags = tagsStmt.all()
+    
+    const tagGroupsStmt = db.prepare('SELECT * FROM tag_groups ORDER BY order_index')
+    const tagGroups = tagGroupsStmt.all()
+    
+    const moodsStmt = db.prepare('SELECT * FROM moods ORDER BY mood_group_id')
+    const moods = moodsStmt.all()
+    
+    const dayEntries = entries.map(entry => ({
+      id: entry.id,
+      minute: entry.minute,
+      hour: entry.hour,
+      day: entry.day,
+      month: entry.month,
+      year: entry.year,
+      datetime: entry.datetime,
+      timeZoneOffset: entry.time_zone_offset,
+      mood: entry.mood,
+      note_title: entry.note_title || '',
+      note: entry.note || '',
+      tags: JSON.parse(entry.tags_json)
+    }))
+    
+    const tagsArray = tags.map(tag => ({
+      id: tag.id,
+      name: tag.name,
+      id_tag_group: tag.id_tag_group,
+      icon: tag.icon,
+      order: tag.order_index,
+      state: tag.state,
+      createdAt: tag.created_at
+    }))
+    
+    const tagGroupsArray = tagGroups.map(group => ({
+      id: group.id,
+      name: group.name,
+      order: group.order_index
+    }))
+    
+    const customMoods = moods.map(mood => ({
+      id: mood.id,
+      custom_name: mood.custom_name,
+      mood_group_id: mood.mood_group_id,
+      icon_id: mood.icon_id,
+      predefined_name_id: mood.predefined_name_id,
+      state: mood.state,
+      createdAt: mood.created_at
+    }))
+    
+    const exportData = {
+      version: 15,
+      daysInRowLongestChain: 0,
+      metadata: {
+        number_of_entries: entries.length
+      },
+      customMoods: customMoods,
+      tag_groups: tagGroupsArray,
+      tags: tagsArray,
+      dayEntries: dayEntries
+    }
+    
+    return {
+      success: true,
+      data: exportData
+    }
+  } catch (err) {
+    return {
+      success: false,
+      error: err.message
+    }
+  }
+}
+
 module.exports = {
   createEntry,
   getAllEntries,
   getAvailableMoods,
   getAvailableTags,
-  getMetadata
+  getMetadata,
+  exportDaylioFormat
 }

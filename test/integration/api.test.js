@@ -189,6 +189,22 @@ function setupTestApp() {
     res.status(201).json(createdEntry)
   })
 
+  testApp.get('/api/export', (req, res) => {
+    const { exportDaylioFormat } = require('../../db/repository')
+    const result = exportDaylioFormat()
+
+    if (!result.success) {
+      return res.status(500).json({ error: result.error })
+    }
+
+    const jsonString = JSON.stringify(result.data)
+    const base64Data = Buffer.from(jsonString, 'utf-8').toString('base64')
+
+    res.type('application/octet-stream')
+    res.setHeader('Content-Disposition', 'attachment; filename="backup.daylio"')
+    res.send(base64Data)
+  })
+
   return testApp
 }
 
@@ -1132,6 +1148,604 @@ describe('Integration Tests - API Endpoints', () => {
       expect(createdEntry).toBeDefined()
       expect(createdEntry.journal).toEqual(['', ''])
       expect(createdEntry.activities).toEqual([])
+    })
+  })
+
+  describe('GET /api/export', () => {
+    const getResponseText = (response) => response.body ? response.body.toString() : response.text
+
+    it('should return 200 with base64 encoded backup data', async () => {
+      const response = await request(app)
+        .get('/api/export')
+        .buffer()
+        .expect(200)
+        .expect('Content-Disposition', 'attachment; filename="backup.daylio"')
+
+      expect(response.headers['content-type']).toContain('application/octet-stream')
+      const responseText = getResponseText(response)
+      expect(typeof responseText).toBe('string')
+      expect(responseText.length).toBeGreaterThan(0)
+    })
+
+    it('should export valid base64 data that can be decoded', async () => {
+      const response = await request(app)
+        .get('/api/export')
+        .buffer()
+        .expect(200)
+
+      const responseText = getResponseText(response)
+      const decoded = Buffer.from(responseText, 'base64').toString('utf-8')
+      expect(() => JSON.parse(decoded)).not.toThrow()
+    })
+
+    it('should export data with correct Daylio backup structure', async () => {
+      const response = await request(app)
+        .get('/api/export')
+        .buffer()
+        .expect(200)
+
+      const responseText = getResponseText(response)
+      const decoded = Buffer.from(responseText, 'base64').toString('utf-8')
+      const exportData = JSON.parse(decoded)
+
+      expect(exportData).toHaveProperty('version')
+      expect(exportData).toHaveProperty('daysInRowLongestChain')
+      expect(exportData).toHaveProperty('metadata')
+      expect(exportData).toHaveProperty('customMoods')
+      expect(exportData).toHaveProperty('tag_groups')
+      expect(exportData).toHaveProperty('tags')
+      expect(exportData).toHaveProperty('dayEntries')
+    })
+
+    it('should export metadata with correct number of entries', async () => {
+      const response = await request(app)
+        .get('/api/export')
+        .buffer()
+        .expect(200)
+
+      const responseText = getResponseText(response)
+      const decoded = Buffer.from(responseText, 'base64').toString('utf-8')
+      const exportData = JSON.parse(decoded)
+
+      expect(exportData.metadata.number_of_entries).toBe(3)
+    })
+
+    it('should export all day entries with correct structure', async () => {
+      const response = await request(app)
+        .get('/api/export')
+        .buffer()
+        .expect(200)
+
+      const responseText = getResponseText(response)
+      const decoded = Buffer.from(responseText, 'base64').toString('utf-8')
+      const exportData = JSON.parse(decoded)
+
+      expect(Array.isArray(exportData.dayEntries)).toBe(true)
+      expect(exportData.dayEntries).toHaveLength(3)
+
+      const entry = exportData.dayEntries[0]
+      expect(entry).toHaveProperty('id')
+      expect(entry).toHaveProperty('minute')
+      expect(entry).toHaveProperty('hour')
+      expect(entry).toHaveProperty('day')
+      expect(entry).toHaveProperty('month')
+      expect(entry).toHaveProperty('year')
+      expect(entry).toHaveProperty('datetime')
+      expect(entry).toHaveProperty('timeZoneOffset')
+      expect(entry).toHaveProperty('mood')
+      expect(entry).toHaveProperty('note_title')
+      expect(entry).toHaveProperty('note')
+      expect(entry).toHaveProperty('tags')
+      expect(Array.isArray(entry.tags)).toBe(true)
+    })
+
+    it('should export all tags with correct structure', async () => {
+      const response = await request(app)
+        .get('/api/export')
+        .buffer()
+        .expect(200)
+
+      const responseText = getResponseText(response)
+      const decoded = Buffer.from(responseText, 'base64').toString('utf-8')
+      const exportData = JSON.parse(decoded)
+
+      expect(Array.isArray(exportData.tags)).toBe(true)
+      expect(exportData.tags).toHaveLength(3)
+
+      const tag = exportData.tags[0]
+      expect(tag).toHaveProperty('id')
+      expect(tag).toHaveProperty('name')
+      expect(tag).toHaveProperty('id_tag_group')
+      expect(tag).toHaveProperty('icon')
+      expect(tag).toHaveProperty('order')
+      expect(tag).toHaveProperty('state')
+      expect(tag).toHaveProperty('createdAt')
+    })
+
+    it('should export all tag groups with correct structure', async () => {
+      const response = await request(app)
+        .get('/api/export')
+        .buffer()
+        .expect(200)
+
+      const responseText = getResponseText(response)
+      const decoded = Buffer.from(responseText, 'base64').toString('utf-8')
+      const exportData = JSON.parse(decoded)
+
+      expect(Array.isArray(exportData.tag_groups)).toBe(true)
+      expect(exportData.tag_groups).toHaveLength(2)
+
+      const tagGroup = exportData.tag_groups[0]
+      expect(tagGroup).toHaveProperty('id')
+      expect(tagGroup).toHaveProperty('name')
+      expect(tagGroup).toHaveProperty('order')
+    })
+
+    it('should export all custom moods with correct structure', async () => {
+      const response = await request(app)
+        .get('/api/export')
+        .buffer()
+        .expect(200)
+
+      const responseText = getResponseText(response)
+      const decoded = Buffer.from(responseText, 'base64').toString('utf-8')
+      const exportData = JSON.parse(decoded)
+
+      expect(Array.isArray(exportData.customMoods)).toBe(true)
+      expect(exportData.customMoods).toHaveLength(5)
+
+      const mood = exportData.customMoods[0]
+      expect(mood).toHaveProperty('id')
+      expect(mood).toHaveProperty('custom_name')
+      expect(mood).toHaveProperty('mood_group_id')
+      expect(mood).toHaveProperty('icon_id')
+      expect(mood).toHaveProperty('predefined_name_id')
+      expect(mood).toHaveProperty('state')
+      expect(mood).toHaveProperty('createdAt')
+    })
+
+    it('should export entries in ID order', async () => {
+      const response = await request(app)
+        .get('/api/export')
+        .buffer()
+        .expect(200)
+
+      const responseText = getResponseText(response)
+      const decoded = Buffer.from(responseText, 'base64').toString('utf-8')
+      const exportData = JSON.parse(decoded)
+
+      expect(exportData.dayEntries[0].id).toBe(1)
+      expect(exportData.dayEntries[1].id).toBe(2)
+      expect(exportData.dayEntries[2].id).toBe(3)
+    })
+
+    it('should export tags in order_index order', async () => {
+      const response = await request(app)
+        .get('/api/export')
+        .buffer()
+        .expect(200)
+
+      const responseText = getResponseText(response)
+      const decoded = Buffer.from(responseText, 'base64').toString('utf-8')
+      const exportData = JSON.parse(decoded)
+
+      for (let i = 0; i < exportData.tags.length - 1; i++) {
+        expect(exportData.tags[i].order).toBeLessThanOrEqual(exportData.tags[i + 1].order)
+      }
+    })
+
+    it('should export moods in mood_group_id order', async () => {
+      const response = await request(app)
+        .get('/api/export')
+        .buffer()
+        .expect(200)
+
+      const responseText = getResponseText(response)
+      const decoded = Buffer.from(responseText, 'base64').toString('utf-8')
+      const exportData = JSON.parse(decoded)
+
+      for (let i = 0; i < exportData.customMoods.length - 1; i++) {
+        expect(exportData.customMoods[i].mood_group_id).toBeLessThanOrEqual(exportData.customMoods[i + 1].mood_group_id)
+      }
+    })
+  })
+
+  describe('Export and Re-import Round Trip', () => {
+    const getResponseText = (response) => response.body ? response.body.toString() : response.text
+
+    it('should maintain all entry data through export and re-import', async () => {
+      const exportResponse = await request(app)
+        .get('/api/export')
+        .buffer()
+        .expect(200)
+
+      const responseText = getResponseText(exportResponse)
+      const decoded = Buffer.from(responseText, 'base64').toString('utf-8')
+      const exportData = JSON.parse(decoded)
+
+      closeDatabase()
+      if (fs.existsSync(TEST_DB_PATH)) {
+        fs.unlinkSync(TEST_DB_PATH)
+      }
+
+      initializeDatabase()
+      importDaylioData(exportData)
+      app = setupTestApp()
+
+      const reloadedData = loadDataFromDatabase()
+
+      expect(reloadedData.dayEntries.length).toBe(mockDaylioData.dayEntries.length)
+      
+      for (let i = 0; i < mockDaylioData.dayEntries.length; i++) {
+        const original = mockDaylioData.dayEntries[i]
+        const reloaded = reloadedData.dayEntries.find(e => e.id === original.id)
+        
+        expect(reloaded).toBeDefined()
+        expect(reloaded.id).toBe(original.id)
+        expect(reloaded.minute).toBe(original.minute)
+        expect(reloaded.hour).toBe(original.hour)
+        expect(reloaded.day).toBe(original.day)
+        expect(reloaded.month).toBe(original.month)
+        expect(reloaded.year).toBe(original.year)
+        expect(reloaded.datetime).toBe(original.datetime)
+        expect(reloaded.timeZoneOffset).toBe(original.timeZoneOffset)
+        expect(reloaded.mood).toBe(original.mood)
+        expect(reloaded.note_title).toBe(original.note_title)
+        expect(reloaded.note).toBe(original.note)
+        expect(reloaded.tags).toEqual(original.tags)
+      }
+    })
+
+    it('should maintain all tag data through export and re-import', async () => {
+      const exportResponse = await request(app)
+        .get('/api/export')
+        .buffer()
+        .expect(200)
+
+      const responseText = getResponseText(exportResponse)
+      const decoded = Buffer.from(responseText, 'base64').toString('utf-8')
+      const exportData = JSON.parse(decoded)
+
+      closeDatabase()
+      if (fs.existsSync(TEST_DB_PATH)) {
+        fs.unlinkSync(TEST_DB_PATH)
+      }
+
+      initializeDatabase()
+      importDaylioData(exportData)
+      app = setupTestApp()
+
+      const reloadedData = loadDataFromDatabase()
+
+      expect(reloadedData.tags.length).toBe(mockDaylioData.tags.length)
+      
+      for (let i = 0; i < mockDaylioData.tags.length; i++) {
+        const original = mockDaylioData.tags[i]
+        const reloaded = reloadedData.tags.find(t => t.id === original.id)
+        
+        expect(reloaded).toBeDefined()
+        expect(reloaded.id).toBe(original.id)
+        expect(reloaded.name).toBe(original.name)
+        expect(reloaded.id_tag_group).toBe(original.id_tag_group)
+        expect(reloaded.icon).toBe(original.icon)
+        expect(reloaded.order).toBe(original.order)
+        expect(reloaded.state).toBe(original.state)
+        expect(reloaded.createdAt).toBe(original.createdAt)
+      }
+    })
+
+    it('should maintain all tag group data through export and re-import', async () => {
+      const exportResponse = await request(app)
+        .get('/api/export')
+        .buffer()
+        .expect(200)
+
+      const responseText = getResponseText(exportResponse)
+      const decoded = Buffer.from(responseText, 'base64').toString('utf-8')
+      const exportData = JSON.parse(decoded)
+
+      closeDatabase()
+      if (fs.existsSync(TEST_DB_PATH)) {
+        fs.unlinkSync(TEST_DB_PATH)
+      }
+
+      initializeDatabase()
+      importDaylioData(exportData)
+      app = setupTestApp()
+
+      const reloadedData = loadDataFromDatabase()
+
+      expect(reloadedData.tag_groups.length).toBe(mockDaylioData.tag_groups.length)
+      
+      for (let i = 0; i < mockDaylioData.tag_groups.length; i++) {
+        const original = mockDaylioData.tag_groups[i]
+        const reloaded = reloadedData.tag_groups.find(g => g.id === original.id)
+        
+        expect(reloaded).toBeDefined()
+        expect(reloaded.id).toBe(original.id)
+        expect(reloaded.name).toBe(original.name)
+        expect(reloaded.order).toBe(original.order)
+      }
+    })
+
+    it('should maintain all mood data through export and re-import', async () => {
+      const exportResponse = await request(app)
+        .get('/api/export')
+        .buffer()
+        .expect(200)
+
+      const responseText = getResponseText(exportResponse)
+      const decoded = Buffer.from(responseText, 'base64').toString('utf-8')
+      const exportData = JSON.parse(decoded)
+
+      closeDatabase()
+      if (fs.existsSync(TEST_DB_PATH)) {
+        fs.unlinkSync(TEST_DB_PATH)
+      }
+
+      initializeDatabase()
+      importDaylioData(exportData)
+      app = setupTestApp()
+
+      const reloadedData = loadDataFromDatabase()
+
+      expect(reloadedData.customMoods.length).toBe(mockDaylioData.customMoods.length)
+      
+      for (let i = 0; i < mockDaylioData.customMoods.length; i++) {
+        const original = mockDaylioData.customMoods[i]
+        const reloaded = reloadedData.customMoods.find(m => m.id === original.id)
+        
+        expect(reloaded).toBeDefined()
+        expect(reloaded.id).toBe(original.id)
+        expect(reloaded.custom_name).toBe(original.custom_name)
+        expect(reloaded.mood_group_id).toBe(original.mood_group_id)
+        expect(reloaded.icon_id).toBe(original.icon_id)
+        expect(reloaded.predefined_name_id).toBe(original.predefined_name_id)
+        expect(reloaded.state).toBe(original.state)
+        expect(reloaded.createdAt).toBe(original.createdAt)
+      }
+    })
+
+    it('should maintain metadata through export and re-import', async () => {
+      const exportResponse = await request(app)
+        .get('/api/export')
+        .buffer()
+        .expect(200)
+
+      const responseText = getResponseText(exportResponse)
+      const decoded = Buffer.from(responseText, 'base64').toString('utf-8')
+      const exportData = JSON.parse(decoded)
+
+      expect(exportData.metadata.number_of_entries).toBe(mockDaylioData.metadata.number_of_entries)
+      expect(exportData.version).toBe(15)
+
+      closeDatabase()
+      if (fs.existsSync(TEST_DB_PATH)) {
+        fs.unlinkSync(TEST_DB_PATH)
+      }
+
+      initializeDatabase()
+      importDaylioData(exportData)
+      app = setupTestApp()
+
+      const reloadedData = loadDataFromDatabase()
+
+      expect(reloadedData.metadata.number_of_entries).toBe(mockDaylioData.metadata.number_of_entries)
+    })
+
+    it('should handle entries with newlines in notes through round trip', async () => {
+      const entryWithNewlines = {
+        mood: 1,
+        datetime: 1710758400000,
+        note: 'Line 1\nLine 2\nLine 3',
+        note_title: 'Multi-line note'
+      }
+
+      await request(app).post('/api/entries').send(entryWithNewlines).expect(201)
+
+      const exportResponse = await request(app)
+        .get('/api/export')
+        .buffer()
+        .expect(200)
+
+      const responseText = getResponseText(exportResponse)
+      const decoded = Buffer.from(responseText, 'base64').toString('utf-8')
+      const exportData = JSON.parse(decoded)
+
+      const exportedEntry = exportData.dayEntries.find(e => e.note_title === 'Multi-line note')
+      expect(exportedEntry.note).toBe('Line 1\nLine 2\nLine 3')
+
+      closeDatabase()
+      if (fs.existsSync(TEST_DB_PATH)) {
+        fs.unlinkSync(TEST_DB_PATH)
+      }
+
+      initializeDatabase()
+      importDaylioData(exportData)
+      app = setupTestApp()
+
+      const reloadedData = loadDataFromDatabase()
+      const reloadedEntry = reloadedData.dayEntries.find(e => e.note_title === 'Multi-line note')
+      expect(reloadedEntry.note).toBe('Line 1\nLine 2\nLine 3')
+    })
+
+    it('should handle entries with empty optional fields through round trip', async () => {
+      const minimalEntry = {
+        mood: 2,
+        datetime: 1710931200000
+      }
+
+      await request(app).post('/api/entries').send(minimalEntry).expect(201)
+
+      const exportResponse = await request(app)
+        .get('/api/export')
+        .buffer()
+        .expect(200)
+
+      const responseText = getResponseText(exportResponse)
+      const decoded = Buffer.from(responseText, 'base64').toString('utf-8')
+      const exportData = JSON.parse(decoded)
+
+      const exportedEntry = exportData.dayEntries.find(e => e.datetime === 1710931200000)
+      expect(exportedEntry.note_title).toBe('')
+      expect(exportedEntry.note).toBe('')
+      expect(exportedEntry.tags).toEqual([])
+
+      closeDatabase()
+      if (fs.existsSync(TEST_DB_PATH)) {
+        fs.unlinkSync(TEST_DB_PATH)
+      }
+
+      initializeDatabase()
+      importDaylioData(exportData)
+      app = setupTestApp()
+
+      const reloadedData = loadDataFromDatabase()
+      const reloadedEntry = reloadedData.dayEntries.find(e => e.datetime === 1710931200000)
+      expect(reloadedEntry.note_title).toBe('')
+      expect(reloadedEntry.note).toBe('')
+      expect(reloadedEntry.tags).toEqual([])
+    })
+
+    it('should maintain exact ordering through round trip', async () => {
+      const exportResponse = await request(app)
+        .get('/api/export')
+        .buffer()
+        .expect(200)
+
+      const responseText = getResponseText(exportResponse)
+      const decoded = Buffer.from(responseText, 'base64').toString('utf-8')
+      const exportData = JSON.parse(decoded)
+
+      closeDatabase()
+      if (fs.existsSync(TEST_DB_PATH)) {
+        fs.unlinkSync(TEST_DB_PATH)
+      }
+
+      initializeDatabase()
+      importDaylioData(exportData)
+      app = setupTestApp()
+
+      const reloadedData = loadDataFromDatabase()
+
+      for (let i = 0; i < exportData.dayEntries.length; i++) {
+        const exportedEntry = exportData.dayEntries[i]
+        const reloadedEntry = reloadedData.dayEntries.find(e => e.id === exportedEntry.id)
+        expect(reloadedEntry).toBeDefined()
+      }
+
+      for (let i = 0; i < exportData.tags.length; i++) {
+        const exportedTag = exportData.tags[i]
+        const reloadedTag = reloadedData.tags.find(t => t.id === exportedTag.id)
+        expect(reloadedTag).toBeDefined()
+        expect(reloadedTag.order).toBe(exportedTag.order)
+      }
+
+      for (let i = 0; i < exportData.customMoods.length; i++) {
+        const exportedMood = exportData.customMoods[i]
+        const reloadedMood = reloadedData.customMoods.find(m => m.id === exportedMood.id)
+        expect(reloadedMood).toBeDefined()
+        expect(reloadedMood.mood_group_id).toBe(exportedMood.mood_group_id)
+      }
+    })
+
+    it('should handle tag-to-entry relationships through round trip', async () => {
+      const exportResponse = await request(app)
+        .get('/api/export')
+        .buffer()
+        .expect(200)
+
+      const responseText = getResponseText(exportResponse)
+      const decoded = Buffer.from(responseText, 'base64').toString('utf-8')
+      const exportData = JSON.parse(decoded)
+
+      closeDatabase()
+      if (fs.existsSync(TEST_DB_PATH)) {
+        fs.unlinkSync(TEST_DB_PATH)
+      }
+
+      initializeDatabase()
+      importDaylioData(exportData)
+      app = setupTestApp()
+
+      const reloadedData = loadDataFromDatabase()
+
+      for (const originalEntry of mockDaylioData.dayEntries) {
+        const reloadedEntry = reloadedData.dayEntries.find(e => e.id === originalEntry.id)
+        expect(reloadedEntry.tags).toEqual(originalEntry.tags)
+        
+        reloadedEntry.tags.forEach(tagId => {
+          const tag = reloadedData.tags.find(t => t.id === tagId)
+          expect(tag).toBeDefined()
+        })
+      }
+    })
+
+    it('should handle tag-to-tag-group relationships through round trip', async () => {
+      const exportResponse = await request(app)
+        .get('/api/export')
+        .buffer()
+        .expect(200)
+
+      const responseText = getResponseText(exportResponse)
+      const decoded = Buffer.from(responseText, 'base64').toString('utf-8')
+      const exportData = JSON.parse(decoded)
+
+      closeDatabase()
+      if (fs.existsSync(TEST_DB_PATH)) {
+        fs.unlinkSync(TEST_DB_PATH)
+      }
+
+      initializeDatabase()
+      importDaylioData(exportData)
+      app = setupTestApp()
+
+      const reloadedData = loadDataFromDatabase()
+
+      for (const originalTag of mockDaylioData.tags) {
+        const reloadedTag = reloadedData.tags.find(t => t.id === originalTag.id)
+        expect(reloadedTag.id_tag_group).toBe(originalTag.id_tag_group)
+        
+        const tagGroup = reloadedData.tag_groups.find(g => g.id === reloadedTag.id_tag_group)
+        expect(tagGroup).toBeDefined()
+      }
+    })
+
+    it('should perform multiple consecutive round trips without data loss', async () => {
+      let currentData = mockDaylioData
+
+      for (let iteration = 0; iteration < 3; iteration++) {
+        closeDatabase()
+        if (fs.existsSync(TEST_DB_PATH)) {
+          fs.unlinkSync(TEST_DB_PATH)
+        }
+
+        initializeDatabase()
+        importDaylioData(currentData)
+        app = setupTestApp()
+
+        const exportResponse = await request(app)
+          .get('/api/export')
+          .buffer()
+          .expect(200)
+
+        const responseText = getResponseText(exportResponse)
+        const decoded = Buffer.from(responseText, 'base64').toString('utf-8')
+        currentData = JSON.parse(decoded)
+
+        expect(currentData.dayEntries.length).toBe(mockDaylioData.dayEntries.length)
+        expect(currentData.tags.length).toBe(mockDaylioData.tags.length)
+        expect(currentData.tag_groups.length).toBe(mockDaylioData.tag_groups.length)
+        expect(currentData.customMoods.length).toBe(mockDaylioData.customMoods.length)
+
+        for (const originalEntry of mockDaylioData.dayEntries) {
+          const roundTripEntry = currentData.dayEntries.find(e => e.id === originalEntry.id)
+          expect(roundTripEntry).toBeDefined()
+          expect(roundTripEntry.datetime).toBe(originalEntry.datetime)
+          expect(roundTripEntry.mood).toBe(originalEntry.mood)
+          expect(roundTripEntry.note).toBe(originalEntry.note)
+        }
+      }
     })
   })
 })

@@ -4,7 +4,7 @@ const path = require('path')
 const fs = require('fs')
 const extract = require('extract-zip')
 const { initializeDatabase, importDaylioData, loadDataFromDatabase, isDatabasePopulated } = require('./db/database')
-const { createEntry } = require('./db/repository')
+const { createEntry, exportDaylioFormat } = require('./db/repository')
 
 const app = express()
 
@@ -411,6 +411,21 @@ function loadServer() {
     }
 
     res.status(201).json(createdEntry)
+  })
+
+  app.get('/api/export', (req, res) => {
+    const result = exportDaylioFormat()
+
+    if (!result.success) {
+      return res.status(500).json({ error: result.error })
+    }
+
+    const jsonString = JSON.stringify(result.data)
+    const base64Data = Buffer.from(jsonString, 'utf-8').toString('base64')
+
+    res.type('application/octet-stream')
+    res.setHeader('Content-Disposition', 'attachment; filename="backup.daylio"')
+    res.send(base64Data)
   })
 
 
